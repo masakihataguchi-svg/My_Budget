@@ -89,8 +89,8 @@
   </style>
 
   <script>
-    // ⚙️ タイポを修正した、寸分の狂いもない完全なGASウェブアプリURL
-    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx3Ecc0JvebfweIZuabqgUBzuz679L51TL_IVQ4yes8JmnjOqo953T_DTjynUWkHfUS/exec";
+    // ⚙️ 稼働確認が取れている正しい本番用GAS URL
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx3Ecc0JvebfwelZuabqgUBzuz679L51TL_IVQ4yes8JmnjOqo953T_DTjynUWkHfUS/exec";
 
     // 明細データをフロント側に保持するキャッシュ配列
     let cachedDetails = [];
@@ -113,13 +113,17 @@
       listEl.innerHTML = '';
 
       try {
-        const response = await fetch(GAS_API_URL);
+        // 🛠️ 【修正箇所】Googleの302リダイレクト転送を強制的に追従させる設定を明示
+        const response = await fetch(GAS_API_URL, {
+          method: "GET",
+          redirect: "follow"
+        });
+        
         if (!response.ok) throw new Error('ネットワークエラーが発生しました。');
         
         const responseData = await response.json();
         if (responseData.error) throw new Error(responseData.error);
         
-        // パッケージデータを分解
         const summary = responseData.summary || [];
         cachedDetails = responseData.details || [];
 
