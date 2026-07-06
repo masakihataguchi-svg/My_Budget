@@ -52,10 +52,48 @@
 
   </main>
 
-  <script>
-    // ⚙️ デプロイ済みのGASウェブアプリURL（コンソールから完全復元）
-    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx3EccOJvebfweIZuabqgUBzuz679L51TL_IVQ4yes8JmnjOqo953T_DTjynUWkHfUS/exec";
+  <div id="detail-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div onclick="closeModal()" class="fixed inset-0 bg-black/60 backdrop-blur-xs"></div>
     
+    <div class="relative bg-white w-full sm:max-w-md h-[80vh] sm:h-[70vh] sm:rounded-2xl rounded-t-2xl shadow-xl flex flex-col overflow-hidden animate-slide-up sm:animate-fade-in">
+      <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+        <div>
+          <h3 id="modal-title" class="text-base font-black text-slate-800">費目明細</h3>
+          <p id="modal-subtitle" class="text-xs text-slate-400 font-bold mt-0.5">0件の支出</p>
+        </div>
+        <button onclick="closeModal()" class="w-8 h-8 flex items-center justify-center bg-slate-200/60 active:scale-90 text-slate-500 rounded-full font-bold transition-transform">
+          ✕
+        </button>
+      </div>
+      
+      <div id="modal-body" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
+        </div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .animate-slide-up {
+      animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.2s ease-out forwards;
+    }
+  </style>
+
+  <script>
+    // ⚙️ ご提供いただいた最新のGASウェブアプリURL
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx3Ecc0JvebfwelZuabqgUBzuz679L51TL_IVQ4yes8JmnjOqo953T_DTjynUWkHfUS/exec";
+
+    // 明細データをフロント側に保持するキャッシュ配列
+    let cachedDetails = [];
 
     // 通貨フォーマット関数
     function formatVND(value) {
@@ -78,9 +116,14 @@
         const response = await fetch(GAS_API_URL);
         if (!response.ok) throw new Error('ネットワークエラーが発生しました。');
         
-        const data = await response.json();
-        if (data.error) throw new Error(data.error);
-        if (data.length === 0) {
+        const responseData = await response.json();
+        if (responseData.error) throw new Error(responseData.error);
+        
+        // パッケージデータを分解
+        const summary = responseData.summary || [];
+        cachedDetails = responseData.details || [];
+
+        if (summary.length === 0) {
           monthEl.innerText = "データなし";
           throw new Error('今月の有効なデータが Budget_Master に見つかりません。');
         }
@@ -88,8 +131,8 @@
         loadingEl.classList.add('hidden');
         summaryEl.classList.remove('hidden');
 
-        // ===== 🕒 ヘッダーの日付表記を綺麗に整える =====
-        const rawMonth = data[0].month;
+        // ヘッダーの日付表記を綺麗に整える
+        const rawMonth = summary[0].month;
         let formattedMonth = rawMonth;
 
         if (rawMonth.includes('GMT') || !isNaN(Date.parse(rawMonth))) {
@@ -110,15 +153,14 @@
         let totalBudget = 0;
         let totalActual = 0;
 
-        // 費目別進捗バーの組み立て
-        data.forEach(item => {
+        // 費目別リスト（プログレスバー）の生成
+        summary.forEach(item => {
           totalBudget += item.budget;
           totalActual += item.actual;
 
           const ratePercent = Math.min((item.rate * 100), 100).toFixed(1);
           const rawPercent = (item.rate * 100).toFixed(1);
 
-          // 消化率に応じたプログレスバーの色決定
           let barColor = 'bg-blue-500';
           let textColor = 'text-blue-600';
           if (item.rate >= 1.0) {
@@ -130,7 +172,10 @@
           }
 
           const card = document.createElement('div');
-          card.className = 'bg-white p-4 rounded-xl shadow-xs border border-slate-100 space-y-2';
+          // クリック可能にするためのエフェクトとスタイル定義
+          card.className = 'bg-white p-4 rounded-xl shadow-xs border border-slate-100 space-y-2 cursor-pointer active:bg-slate-50 transition-colors select-none';
+          card.onclick = () => openModal(item.category);
+          
           card.innerHTML = `
             <div class="flex justify-between items-baseline">
               <span class="font-black text-slate-700 text-sm">${item.category}</span>
@@ -139,7 +184,10 @@
             <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
               <div class="${barColor} h-3 rounded-full" style="width: ${ratePercent}%"></div>
             </div>
-            <div class="text-right text-xs ${textColor} font-black">${rawPercent}% 消化</div>
+            <div class="flex justify-between items-center mt-0.5">
+              <span class="text-[10px] font-bold text-slate-300 tracking-tight">📊 タップで支出内訳を表示</span>
+              <span class="text-right text-xs ${textColor} font-black">${rawPercent}% 消化</span>
+            </div>
           `;
           listEl.appendChild(card);
         });
@@ -162,6 +210,89 @@
         loadingEl.classList.add('hidden');
         errorEl.innerText = err.message;
         errorEl.classList.remove('hidden');
+      }
+    }
+
+    // ===== 💬 グルーピング明細モーダルの制御窓口 =====
+    function openModal(category) {
+      const modal = document.getElementById('detail-modal');
+      const title = document.getElementById('modal-title');
+      const subtitle = document.getElementById('modal-subtitle');
+      const body = document.getElementById('modal-body');
+
+      title.innerText = `${category} の今月明細`;
+      body.innerHTML = '';
+
+      // キャッシュから該当カテゴリのレシートデータを抽出
+      const targetDetails = cachedDetails.filter(d => d.category === category);
+      subtitle.innerText = `合計 ${targetDetails.length} 件のお買い物`;
+
+      if (targetDetails.length === 0) {
+        body.innerHTML = `<div class="text-center py-12 text-slate-400 font-medium text-sm">今月の支出明細はありません。</div>`;
+      } else {
+        targetDetails.forEach((receipt, index) => {
+          const itemBox = document.createElement('div');
+          itemBox.className = 'bg-white rounded-xl border border-slate-100 overflow-hidden shadow-2xs';
+          
+          // レシート内商品の箇条書きリストをパース・組み立て
+          const itemsHtml = receipt.items.map(it => {
+            // "商品名 (金額)" の構造を分解
+            const splitIdx = it.lastIndexOf(' (');
+            const itemName = splitIdx !== -1 ? it.substring(0, splitIdx) : it;
+            const itemPrice = splitIdx !== -1 ? it.substring(splitIdx + 2, it.length - 1) : '';
+            
+            return `
+              <li class="flex justify-between items-start text-xs py-2 border-b border-dashed border-slate-100 last:border-0 text-slate-600">
+                <span class="pr-3 font-medium text-left break-all text-slate-600">${itemName}</span>
+                <span class="font-bold text-slate-500 shrink-0 tracking-tight">${itemPrice ? itemPrice + ' ₫' : ''}</span>
+              </li>
+            `;
+          }).join('');
+
+          itemBox.innerHTML = `
+            <div onclick="toggleAccordion(${index})" class="p-3.5 flex justify-between items-center cursor-pointer active:bg-slate-50 transition-colors select-none">
+              <div class="space-y-0.5 text-left pr-2">
+                <div class="text-xs font-black text-slate-700 leading-tight">${receipt.shop}</div>
+                <div class="text-[10px] font-bold text-slate-400 tracking-tight">${receipt.date} ${receipt.time}</div>
+              </div>
+              <div class="flex items-center space-x-2 shrink-0">
+                <span class="text-sm font-black text-slate-800">${formatVND(receipt.totalAmount)}</span>
+                <span id="arrow-${index}" class="text-[9px] text-slate-400 font-bold transition-transform duration-200">▼</span>
+              </div>
+            </div>
+            
+            <div id="body-${index}" class="hidden bg-slate-50/60 px-4 py-2 border-t border-slate-100 border-dashed animate-fade-in">
+              <ul class="divide-y divide-dashed divide-slate-100">
+                ${itemsHtml}
+              </ul>
+            </div>
+          `;
+          body.appendChild(itemBox);
+        });
+      }
+
+      // モーダルの表示処理
+      modal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden'; // 背景のスクロールを一時固定
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('detail-modal');
+      modal.classList.add('hidden');
+      document.body.style.overflow = ''; // スクロール固定を解除
+    }
+
+    // アコーディオンの開閉スイッチ
+    function toggleAccordion(index) {
+      const body = document.getElementById(`body-${index}`);
+      const arrow = document.getElementById(`arrow-${index}`);
+      
+      if (body.classList.contains('hidden')) {
+        body.classList.remove('hidden');
+        arrow.style.transform = 'rotate(180deg)';
+      } else {
+        body.classList.add('hidden');
+        arrow.style.transform = 'rotate(0deg)';
       }
     }
 
