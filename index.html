@@ -162,13 +162,20 @@
     </div>
   </div>
 
+  <style>
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    .animate-slide-up { animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
+  </style>
+
   <script>
-    // ⚙️ 稼働中の本番用GAS URL (大文字のIを完全保持)
-    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx3Ecc0JvebfweIZuabqgUBzuz679L51TL_IVQ4yes8JmnjOqo953T_DTjynUWkHfUS/exec";
+    // ⚙️ 【一字一句完全復元】大文字の O と I を完全に含んだ正しい本番用GAS URL
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx3EccOJvebfweIZuabqgUBzuz679L51TL_IVQ4yes8JmnjOqo953T_DTjynUWkHfUS/exec";
 
     let serverPackageData = null;
     let currentView = 'current'; 
-    let selectedImageBase64Array = []; // プールされた画像配列
+    let selectedImageBase64Array = []; 
 
     let touchStartX = 0;
     let touchStartY = 0;
@@ -256,7 +263,6 @@
         if (item.rate >= 1.0) {
           barColor = 'bg-red-500 animate-pulse';
           textColor = 'text-red-600';
-        } else if (item.rate >= 0.9) {
           barColor = 'bg-amber-500';
           textColor = 'text-amber-600';
         }
@@ -303,7 +309,7 @@
     }
 
     function handleImagesSelected(event) {
-      const files = event.target.target || event.target.files;
+      const files = event.target.files;
       if (!files || files.length === 0) return;
 
       document.getElementById('scan-modal').classList.remove('hidden');
@@ -317,7 +323,7 @@
         };
         reader.readAsDataURL(file);
       });
-      event.target.value = ''; // インプットのリセット
+      event.target.value = ''; 
     }
 
     function renderThumbnails() {
@@ -358,7 +364,6 @@
       try {
         const sanitizedUrl = GAS_API_URL.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
         
-        // 🚀 画像パッケージをPOST送信
         const response = await fetch(sanitizedUrl, {
           method: "POST",
           redirect: "follow",
@@ -373,7 +378,6 @@
         
         if (result.error) throw new Error(result.error);
 
-        // 解析成功 ➔ 確認編集フォームへデータを流し込む
         document.getElementById('scan-modal').classList.add('hidden');
         openEditModal(result);
 
@@ -388,7 +392,6 @@
     function openEditModal(data) {
       document.getElementById('edit-modal').classList.remove('hidden');
       
-      // 各入力枠に初期値をセット
       document.getElementById('form-shop').value = data.shop || "不明な店舗";
       document.getElementById('form-date').value = data.date || new Date().toISOString().split('T')[0];
       document.getElementById('form-time').value = data.time || "00:00";
@@ -423,7 +426,7 @@
       closeScanModal();
     }
 
-    // ===== 🚀 修正後の最終データをスプレッドシートの末尾に書き込み！ =====
+    // ===== 🚀 修正後の最終データをスプレッドシートの末尾に書き込み =====
     async function submitFinalDataToSheet() {
       const btn = document.getElementById('btn-submit-sheet');
       
@@ -446,7 +449,6 @@
         return;
       }
 
-      // ローディング状態へ切り替え
       btn.disabled = true;
       btn.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>登録中...</span>`;
 
@@ -465,14 +467,13 @@
         const res = await response.json();
         if (res.error) throw new Error(res.error);
 
-        // 登録完了！➔ 画面を閉じてダッシュボードを最新状態に再リロード
         alert("スプレッドシートへ正常に自動登録されました！");
         closeEditModal();
         fetchData();
 
       } catch (err) {
         alert("登録エラー: " + err.message);
-      } finally {
+      } finaly {
         btn.disabled = false;
         btn.innerHTML = `<span>🚀 シートに直接登録</span>`;
       }
@@ -551,7 +552,6 @@
       }
     }
 
-    // ===== 📱 左右スワイプジェスチャの検知ロジック =====
     const swipeArea = document.getElementById('swipe-area');
 
     swipeArea.addEventListener('touchstart', (e) => {
