@@ -13,7 +13,7 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen font-sans select-none overflow-x-hidden">
 
-  <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white sticky top-0 z-50 shadow-md px-4 pt-4 pb-4 rounded-b-2xl">
+  <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white sticky top-0 z-40 shadow-md px-4 pt-4 pb-4 rounded-b-2xl">
     <div class="flex justify-between items-center max-w-md mx-auto">
       <div>
         <h1 class="text-xl font-black tracking-tight">家計簿</h1>
@@ -29,7 +29,7 @@
     </div>
   </header>
 
-  <main id="swipe-area" class="max-w-md mx-auto p-4 space-y-4 min-h-[calc(100vh-80px)]">
+  <main id="swipe-area" class="max-w-md mx-auto p-4 space-y-4 min-h-[calc(100vh-80px)] pb-24">
 
     <div id="loading" class="text-center py-12 text-slate-400 font-medium animate-pulse">
       データを取得しています...
@@ -56,6 +56,14 @@
 
   </main>
 
+  <div class="fixed bottom-6 right-6 z-40">
+    <button onclick="triggerCamera()" class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-4 rounded-full shadow-xl active:scale-95 hover:shadow-2xl transition-all font-black text-sm tracking-wide flex items-center space-x-2">
+      <span class="text-lg">📸</span>
+      <span>レシートをスキャン</span>
+    </button>
+    <input type="file" id="camera-input" accept="image/*" multiple class="hidden" onchange="handleImagesSelected(event)">
+  </div>
+
   <div id="detail-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
     <div onclick="closeModal()" class="fixed inset-0 bg-black/60 backdrop-blur-xs"></div>
     <div class="relative bg-white w-full sm:max-w-md h-[80vh] sm:h-[70vh] sm:rounded-2xl rounded-t-2xl shadow-xl flex flex-col overflow-hidden animate-slide-up sm:animate-fade-in">
@@ -70,23 +78,98 @@
     </div>
   </div>
 
-  <style>
-    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-    @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-    .animate-slide-up { animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-    .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
-  </style>
+  <div id="scan-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-xs"></div>
+    <div class="relative bg-white w-full sm:max-w-md max-h-[85vh] sm:rounded-2xl rounded-t-2xl shadow-xl flex flex-col overflow-hidden animate-slide-up">
+      <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+        <h3 class="text-base font-black text-slate-800">撮影したレシートの解析</h3>
+        <button onclick="closeScanModal()" class="w-8 h-8 flex items-center justify-center bg-slate-200/60 text-slate-500 rounded-full font-bold">✕</button>
+      </div>
+      <div class="p-5 overflow-y-auto flex-1 space-y-4 text-center">
+        <p class="text-xs text-slate-400 font-bold text-left">※長いレシートは「追加撮影」で複数に分けてプールできます。</p>
+        <div id="image-preview-container" class="grid grid-cols-3 gap-3"></div>
+        
+        <div id="scan-status" class="hidden py-4 space-y-2">
+          <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p class="text-sm font-black text-indigo-600 animate-pulse">Geminiがレシートを解析しています...</p>
+          <p class="text-[11px] text-slate-400 font-medium">（3〜7秒ほどかかります。閉じずにお待ちください）</p>
+        </div>
+      </div>
+      <div id="scan-actions" class="p-4 bg-slate-50 border-t border-slate-100 grid grid-cols-2 gap-3">
+        <button onclick="triggerCamera()" class="bg-white border border-slate-200 text-slate-700 py-3.5 rounded-xl font-bold text-xs active:scale-95 transition-transform">＋ 続きを追加撮影</button>
+        <button onclick="startOcrAnalysis()" class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3.5 rounded-xl font-black text-xs active:scale-95 transition-transform shadow-md">⚡ 解析を開始する</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="edit-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-xs"></div>
+    <div class="relative bg-white w-full sm:max-w-md h-[90vh] sm:h-[85vh] sm:rounded-2xl rounded-t-2xl shadow-xl flex flex-col overflow-hidden animate-slide-up">
+      <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+        <div>
+          <h3 class="text-base font-black text-slate-800">解析結果の確認・修正</h3>
+          <p class="text-[10px] text-amber-600 font-bold mt-0.5">⚠️ 間違いがあれば修正して登録してください</p>
+        </div>
+      </div>
+      
+      <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/30">
+        <div class="bg-white p-4 rounded-xl border border-slate-100 space-y-3 shadow-2xs">
+          <div>
+            <label class="text-[11px] font-black text-slate-400 block mb-1">店舗名</label>
+            <input type="text" id="form-shop" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 font-bold">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-[11px] font-black text-slate-400 block mb-1">日付</label>
+              <input type="date" id="form-date" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-500 font-bold">
+            </div>
+            <div>
+              <label class="text-[11px] font-black text-slate-400 block mb-1">時刻</label>
+              <input type="time" id="form-time" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-500 font-bold">
+            </div>
+          </div>
+          <div>
+            <label class="text-[11px] font-black text-slate-400 block mb-1">支出分類（予算紐付け）</label>
+            <select id="form-category" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-500 font-black text-slate-700">
+              <option value="1食費">1食費</option>
+              <option value="2外食費">2外食費</option>
+              <option value="3日用品費">3日用品費</option>
+              <option value="4交通費">4交通費</option>
+              <option value="5通信費">5通信費</option>
+              <option value="6光熱費">6光熱費</option>
+              <option value="7美容医療費">7美容医療費</option>
+              <option value="8趣味交際費">8趣味交際費</option>
+              <option value="9雑費">9雑費</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex justify-between items-center px-1">
+            <span class="text-xs font-black text-slate-500">購入商品内訳明細</span>
+            <button onclick="addFormItemRow('', 0)" class="text-[11px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">＋ 行を追加</button>
+          </div>
+          <div id="form-items-container" class="space-y-2"></div>
+        </div>
+      </div>
+
+      <div id="edit-actions" class="p-4 bg-slate-50 border-t border-slate-100 grid grid-cols-2 gap-3">
+        <button onclick="closeEditModal()" class="bg-white border border-slate-200 text-slate-500 py-3.5 rounded-xl font-bold text-xs active:scale-95">破棄して戻る</button>
+        <button onclick="submitFinalDataToSheet()" id="btn-submit-sheet" class="bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3.5 rounded-xl font-black text-xs active:scale-95 shadow-md flex justify-center items-center space-x-1">
+          <span>🚀 シートに直接登録</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <script>
-    // ⚙️ 修正済みの正しい本番用GAS URL
-    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx3EccOJvebfweIZuabqgUBzuz679L51TL_IVQ4yes8JmnjOqo953T_DTjynUWkHfUS/exec";
-    
+    // ⚙️ 稼働中の本番用GAS URL (大文字のIを完全保持)
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx3Ecc0JvebfweIZuabqgUBzuz679L51TL_IVQ4yes8JmnjOqo953T_DTjynUWkHfUS/exec";
 
-    // グローバルデータキャッシュと状態管理
     let serverPackageData = null;
-    let currentView = 'current'; // 'current'(今月) または 'last'(先月)
+    let currentView = 'current'; 
+    let selectedImageBase64Array = []; // プールされた画像配列
 
-    // スワイプ判定用の一時変数
     let touchStartX = 0;
     let touchStartY = 0;
 
@@ -113,7 +196,6 @@
         serverPackageData = await response.json();
         if (serverPackageData.error) throw new Error(serverPackageData.error);
         
-        // データの描画処理をキック
         renderDashboard();
 
       } catch (err) {
@@ -123,7 +205,6 @@
       }
     }
 
-    // ===== 🎨 表示月データに応じたダッシュボード描画エンジン =====
     function renderDashboard() {
       if (!serverPackageData) return;
 
@@ -139,10 +220,8 @@
       loadingEl.classList.add('hidden');
       summaryEl.classList.remove('hidden');
 
-      // 現在選択されているビューのデータブロックを抽出
       const targetData = serverPackageData[currentView];
       
-      // ナビゲーションボタンの不透明度調整
       if (currentView === 'current') {
         btnNext.classList.add('opacity-40');
         btnPrev.classList.remove('opacity-40');
@@ -153,7 +232,6 @@
         titleEl.innerText = "先月の残り予算";
       }
 
-      // 日付表示の整形
       let formattedMonth = targetData.ym;
       if (formattedMonth.includes('GMT') || !isNaN(Date.parse(formattedMonth))) {
         const dObj = new Date(formattedMonth);
@@ -166,7 +244,6 @@
       let totalBudget = 0;
       let totalActual = 0;
 
-      // 各費目のバー描画
       targetData.summary.forEach(item => {
         totalBudget += item.budget;
         totalActual += item.actual;
@@ -204,7 +281,6 @@
         listEl.appendChild(card);
       });
 
-      // 総合残高カードの計算
       const remaining = totalBudget - totalActual;
       const remainEl = document.getElementById('remaining-budget');
       
@@ -215,14 +291,194 @@
       document.getElementById('total-actual').innerText = formatVND(totalActual);
     }
 
-    // ===== 🔄 ビュー（月）の切り替えスイッチ窓口 =====
     function switchView(viewName) {
       if (currentView === viewName) return;
       currentView = viewName;
       renderDashboard();
     }
 
-    // ===== 💬 グルーピング明細モーダルの表示処理 =====
+    // ===== 📸 カメラ起動と複数画像管理ロジック =====
+    function triggerCamera() {
+      document.getElementById('camera-input').click();
+    }
+
+    function handleImagesSelected(event) {
+      const files = event.target.target || event.target.files;
+      if (!files || files.length === 0) return;
+
+      document.getElementById('scan-modal').classList.remove('hidden');
+
+      Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const base64String = e.target.result;
+          selectedImageBase64Array.push(base64String);
+          renderThumbnails();
+        };
+        reader.readAsDataURL(file);
+      });
+      event.target.value = ''; // インプットのリセット
+    }
+
+    function renderThumbnails() {
+      const container = document.getElementById('image-preview-container');
+      container.innerHTML = '';
+      
+      selectedImageBase64Array.forEach((base64, index) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100';
+        wrapper.innerHTML = `
+          <img src="${base64}" class="w-full h-full object-cover">
+          <button onclick="removeImageFromPool(${index})" class="absolute top-1 right-1 w-5 h-5 bg-black/70 text-white rounded-full flex items-center justify-center text-[10px] font-bold">✕</button>
+        `;
+        container.appendChild(wrapper);
+      });
+    }
+
+    function removeImageFromPool(index) {
+      selectedImageBase64Array.splice(index, 1);
+      renderThumbnails();
+      if (selectedImageBase64Array.length === 0) closeScanModal();
+    }
+
+    function closeScanModal() {
+      document.getElementById('scan-modal').classList.add('hidden');
+      document.getElementById('scan-status').classList.add('hidden');
+      document.getElementById('scan-actions').classList.remove('hidden');
+      selectedImageBase64Array = [];
+    }
+
+    // ===== ⚡ Gemini API (GAS doPost) への解析要求処理 =====
+    async function startOcrAnalysis() {
+      if (selectedImageBase64Array.length === 0) return;
+
+      document.getElementById('scan-status').classList.remove('hidden');
+      document.getElementById('scan-actions').classList.add('hidden');
+
+      try {
+        const sanitizedUrl = GAS_API_URL.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+        
+        // 🚀 画像パッケージをPOST送信
+        const response = await fetch(sanitizedUrl, {
+          method: "POST",
+          redirect: "follow",
+          body: JSON.stringify({
+            action: "analyze_receipt",
+            images: selectedImageBase64Array
+          })
+        });
+
+        if (!response.ok) throw new Error("サーバーでの解析に失敗しました。");
+        const result = await response.json();
+        
+        if (result.error) throw new Error(result.error);
+
+        // 解析成功 ➔ 確認編集フォームへデータを流し込む
+        document.getElementById('scan-modal').classList.add('hidden');
+        openEditModal(result);
+
+      } catch (err) {
+        alert("解析エラー: " + err.message);
+        document.getElementById('scan-status').classList.add('hidden');
+        document.getElementById('scan-actions').classList.remove('hidden');
+      }
+    }
+
+    // ===== 📝 確認・手動修正フォームフォームの制御窓口 =====
+    function openEditModal(data) {
+      document.getElementById('edit-modal').classList.remove('hidden');
+      
+      // 各入力枠に初期値をセット
+      document.getElementById('form-shop').value = data.shop || "不明な店舗";
+      document.getElementById('form-date').value = data.date || new Date().toISOString().split('T')[0];
+      document.getElementById('form-time').value = data.time || "00:00";
+      document.getElementById('form-category').value = data.category || "1食費";
+
+      const itemContainer = document.getElementById('form-items-container');
+      itemContainer.innerHTML = '';
+
+      if (data.items && data.items.length > 0) {
+        data.items.forEach(item => {
+          addFormItemRow(item.name, item.price);
+        });
+      } else {
+        addFormItemRow('', 0);
+      }
+    }
+
+    function addFormItemRow(name, price) {
+      const container = document.getElementById('form-items-container');
+      const row = document.createElement('div');
+      row.className = 'flex items-center space-x-2 bg-white p-2.5 rounded-xl border border-slate-100 shadow-3xs item-row';
+      row.innerHTML = `
+        <input type="text" value="${name}" placeholder="商品名" class="flex-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none item-name font-medium">
+        <input type="number" value="${Math.round(price)}" placeholder="金額" class="w-24 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none item-price font-bold text-right">
+        <button onclick="this.parentElement.remove()" class="text-slate-300 hover:text-red-500 text-xs font-bold px-1.5">✕</button>
+      `;
+      container.appendChild(row);
+    }
+
+    function closeEditModal() {
+      document.getElementById('edit-modal').classList.add('hidden');
+      closeScanModal();
+    }
+
+    // ===== 🚀 修正後の最終データをスプレッドシートの末尾に書き込み！ =====
+    async function submitFinalDataToSheet() {
+      const btn = document.getElementById('btn-submit-sheet');
+      
+      const shop = document.getElementById('form-shop').value.trim();
+      const date = document.getElementById('form-date').value;
+      const time = document.getElementById('form-time').value;
+      const category = document.getElementById('form-category').value;
+
+      const itemRows = document.querySelectorAll('.item-row');
+      const items = [];
+
+      itemRows.forEach(row => {
+        const name = row.querySelector('.item-name').value.trim();
+        const price = parseFloat(row.querySelector('.item-price').value) || 0;
+        if (name) items.push({ name, price });
+      });
+
+      if (!shop || items.length === 0) {
+        alert("店舗名および購入商品を入力してください。");
+        return;
+      }
+
+      // ローディング状態へ切り替え
+      btn.disabled = true;
+      btn.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>登録中...</span>`;
+
+      try {
+        const sanitizedUrl = GAS_API_URL.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+        const response = await fetch(sanitizedUrl, {
+          method: "POST",
+          redirect: "follow",
+          body: JSON.stringify({
+            action: "save_receipt",
+            data: { shop, date, time, category, items }
+          })
+        });
+
+        if (!response.ok) throw new Error("シートへの登録に失敗しました。");
+        const res = await response.json();
+        if (res.error) throw new Error(res.error);
+
+        // 登録完了！➔ 画面を閉じてダッシュボードを最新状態に再リロード
+        alert("スプレッドシートへ正常に自動登録されました！");
+        closeEditModal();
+        fetchData();
+
+      } catch (err) {
+        alert("登録エラー: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>🚀 シートに直接登録</span>`;
+      }
+    }
+
+    // ===== 💬 グルーピング詳細ポップアップの制御 =====
     function openModal(category) {
       const modal = document.getElementById('detail-modal');
       const title = document.getElementById('modal-title');
@@ -232,7 +488,6 @@
       title.innerText = `${category} の詳細明細`;
       body.innerHTML = '';
 
-      // 現在表示中（今月/先月）の詳細明細配列から、該当費目だけを抽出
       const activeDetails = serverPackageData[currentView].details || [];
       const targetDetails = activeDetails.filter(d => d.category === category);
       subtitle.innerText = `合計 ${targetDetails.length} 件のお買い物`;
@@ -296,7 +551,7 @@
       }
     }
 
-    // ===== 📱 スマホ用：左右スワイプジェスチャの検知ロジック =====
+    // ===== 📱 左右スワイプジェスチャの検知ロジック =====
     const swipeArea = document.getElementById('swipe-area');
 
     swipeArea.addEventListener('touchstart', (e) => {
@@ -311,13 +566,10 @@
       const diffX = touchEndX - touchStartX;
       const diffY = touchEndY - touchStartY;
 
-      // 誤作動防止：縦スクロール（Y軸）の動きが大きくなく、横（X軸）に70px以上動いた時だけスワイプと判定
       if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 70) {
         if (diffX > 0) {
-          // 👉 右へスワイプ＝過去（先月）へ戻る
           switchView('last');
         } else {
-          // 👈 左へスワイプ＝未来（今月）へ進む
           switchView('current');
         }
       }
