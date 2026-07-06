@@ -11,13 +11,17 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen font-sans">
+<body class="bg-slate-50 text-slate-800 min-h-screen font-sans select-none overflow-x-hidden">
 
   <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white sticky top-0 z-50 shadow-md px-4 pt-4 pb-4 rounded-b-2xl">
     <div class="flex justify-between items-center max-w-md mx-auto">
       <div>
         <h1 class="text-xl font-black tracking-tight">家計簿</h1>
-        <p id="app-month" class="text-xs text-blue-100 font-medium">読み込み中...</p>
+        <div class="flex items-center space-x-2 mt-0.5">
+          <button onclick="switchView('last')" id="btn-prev" class="text-blue-200 hover:text-white text-xs font-bold transition-colors">◀ 先月</button>
+          <span id="app-month" class="text-xs text-white font-black bg-white/20 px-2.5 py-0.5 rounded-full">読み込み中...</span>
+          <button onclick="switchView('current')" id="btn-next" class="text-blue-200 hover:text-white text-xs font-bold transition-colors opacity-40">今月 ▶</button>
+        </div>
       </div>
       <button onclick="fetchData()" class="p-2 bg-white/20 rounded-xl active:scale-95 transition-transform" aria-label="更新">
         🔄
@@ -25,7 +29,7 @@
     </div>
   </header>
 
-  <main class="max-w-md mx-auto p-4 space-y-4">
+  <main id="swipe-area" class="max-w-md mx-auto p-4 space-y-4 min-h-[calc(100vh-80px)]">
 
     <div id="loading" class="text-center py-12 text-slate-400 font-medium animate-pulse">
       データを取得しています...
@@ -34,7 +38,7 @@
     <div id="error-msg" class="hidden bg-red-50 border border-red-200 text-red-600 p-4 rounded-xl text-sm font-semibold shadow-sm text-center"></div>
 
     <div id="summary-card" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-100 text-center">
-      <h2 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">今月の残り予算</h2>
+      <h2 id="summary-title" class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">今月の残り予算</h2>
       <div id="remaining-budget" class="text-3xl font-black tracking-tight text-slate-900 transition-colors">0 VND</div>
       <div class="grid grid-cols-2 gap-4 mt-6 pt-4 border-t border-slate-50">
         <div>
@@ -54,49 +58,37 @@
 
   <div id="detail-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
     <div onclick="closeModal()" class="fixed inset-0 bg-black/60 backdrop-blur-xs"></div>
-    
     <div class="relative bg-white w-full sm:max-w-md h-[80vh] sm:h-[70vh] sm:rounded-2xl rounded-t-2xl shadow-xl flex flex-col overflow-hidden animate-slide-up sm:animate-fade-in">
       <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
         <div>
           <h3 id="modal-title" class="text-base font-black text-slate-800">費目明細</h3>
           <p id="modal-subtitle" class="text-xs text-slate-400 font-bold mt-0.5">0件の支出</p>
         </div>
-        <button onclick="closeModal()" class="w-8 h-8 flex items-center justify-center bg-slate-200/60 active:scale-90 text-slate-500 rounded-full font-bold transition-transform">
-          ✕
-        </button>
+        <button onclick="closeModal()" class="w-8 h-8 flex items-center justify-center bg-slate-200/60 active:scale-90 text-slate-500 rounded-full font-bold transition-transform">✕</button>
       </div>
-      
-      <div id="modal-body" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
-        </div>
+      <div id="modal-body" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50"></div>
     </div>
   </div>
 
   <style>
-    @keyframes slideUp {
-      from { transform: translateY(100%); }
-      to { transform: translateY(0); }
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: scale(0.95); }
-      to { opacity: 1; transform: scale(1); }
-    }
-    .animate-slide-up {
-      animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-    .animate-fade-in {
-      animation: fadeIn 0.2s ease-out forwards;
-    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    .animate-slide-up { animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
   </style>
 
   <script>
-    // ⚙️ 稼働確認済みの本番用GAS URL
-    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx3EccOJvebfweIZuabqgUBzuz679L51TL_IVQ4yes8JmnjOqo953T_DTjynUWkHfUS/exec";
-    
+    // ⚙️ 修正済みの正しい本番用GAS URL
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx3Ecc0JvebfwelZuabqgUBzuz679L51TL_IVQ4yes8JmnjOqo953T_DTjynUWkHfUS/exec";
 
-    // 明細データをフロント側に保持するキャッシュ配列
-    let cachedDetails = [];
+    // グローバルデータキャッシュと状態管理
+    let serverPackageData = null;
+    let currentView = 'current'; // 'current'(今月) または 'last'(先月)
 
-    // 通貨フォーマット関数
+    // スワイプ判定用の一時変数
+    let touchStartX = 0;
+    let touchStartY = 0;
+
     function formatVND(value) {
       return new Intl.NumberFormat('ja-JP').format(Math.round(value)) + ' VND';
     }
@@ -106,7 +98,6 @@
       const errorEl = document.getElementById('error-msg');
       const summaryEl = document.getElementById('summary-card');
       const listEl = document.getElementById('category-list');
-      const monthEl = document.getElementById('app-month');
 
       loadingEl.classList.remove('hidden');
       errorEl.classList.add('hidden');
@@ -114,103 +105,15 @@
       listEl.innerHTML = '';
 
       try {
-        // 🛠️ 【防御機構】URL文字列からゼロ幅スペース等の不可視文字・改行を正規表現で徹底排除してクレンジング
         const sanitizedUrl = GAS_API_URL.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
-
-        const response = await fetch(sanitizedUrl, {
-          method: "GET",
-          redirect: "follow"
-        });
-        
+        const response = await fetch(sanitizedUrl, { method: "GET", redirect: "follow" });
         if (!response.ok) throw new Error('ネットワークエラーが発生しました。');
         
-        const responseData = await response.json();
-        if (responseData.error) throw new Error(responseData.error);
+        serverPackageData = await response.json();
+        if (serverPackageData.error) throw new Error(serverPackageData.error);
         
-        const summary = responseData.summary || [];
-        cachedDetails = responseData.details || [];
-
-        if (summary.length === 0) {
-          monthEl.innerText = "データなし";
-          throw new Error('今月の有効なデータが Budget_Master に見つかりません。');
-        }
-
-        loadingEl.classList.add('hidden');
-        summaryEl.classList.remove('hidden');
-
-        // ===== 🕒 ヘッダーの日付表記を綺麗に整える =====
-        const rawMonth = summary[0].month;
-        let formattedMonth = rawMonth;
-
-        if (rawMonth.includes('GMT') || !isNaN(Date.parse(rawMonth))) {
-          const dateObj = new Date(rawMonth);
-          if (!isNaN(dateObj.getTime())) {
-            const y = dateObj.getFullYear();
-            const m = ('0' + (dateObj.getMonth() + 1)).slice(-2);
-            formattedMonth = `${y}-${m}`; 
-          }
-        } else {
-          const match = rawMonth.match(/(\d{4})[-/](\d{1,2})/);
-          if (match) {
-            formattedMonth = `${match[1]}-${('0' + match[2]).slice(-2)}`;
-          }
-        }
-        monthEl.innerText = `${formattedMonth} 予算状況`;
-
-        let totalBudget = 0;
-        let totalActual = 0;
-
-        // 費目別リスト（プログレスバー）の生成
-        summary.forEach(item => {
-          totalBudget += item.budget;
-          totalActual += item.actual;
-
-          const ratePercent = Math.min((item.rate * 100), 100).toFixed(1);
-          const rawPercent = (item.rate * 100).toFixed(1);
-
-          let barColor = 'bg-blue-500';
-          let textColor = 'text-blue-600';
-          if (item.rate >= 1.0) {
-            barColor = 'bg-red-500 animate-pulse';
-            textColor = 'text-red-600';
-          } else if (item.rate >= 0.9) {
-            barColor = 'bg-amber-500';
-            textColor = 'text-amber-600';
-          }
-
-          const card = document.createElement('div');
-          card.className = 'bg-white p-4 rounded-xl shadow-xs border border-slate-100 space-y-2 cursor-pointer active:bg-slate-50 transition-colors select-none';
-          card.onclick = () => openModal(item.category);
-          
-          card.innerHTML = `
-            <div class="flex justify-between items-baseline">
-              <span class="font-black text-slate-700 text-sm">${item.category}</span>
-              <span class="text-xs font-bold text-slate-400">${formatVND(item.actual)} / ${formatVND(item.budget)}</span>
-            </div>
-            <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-              <div class="${barColor} h-3 rounded-full" style="width: ${ratePercent}%"></div>
-            </div>
-            <div class="flex justify-between items-center mt-0.5">
-              <span class="text-[10px] font-bold text-slate-300 tracking-tight">📊 タップで支出内訳を表示</span>
-              <span class="text-right text-xs ${textColor} font-black">${rawPercent}% 消化</span>
-            </div>
-          `;
-          listEl.appendChild(card);
-        });
-
-        // 概要情報の計算とセット
-        const remaining = totalBudget - totalActual;
-        const remainEl = document.getElementById('remaining-budget');
-        
-        remainEl.innerText = formatVND(remaining);
-        if (remaining < 0) {
-          remainEl.className = 'text-3xl font-black tracking-tight text-red-600';
-        } else {
-          remainEl.className = 'text-3xl font-black tracking-tight text-emerald-600';
-        }
-
-        document.getElementById('total-budget').innerText = formatVND(totalBudget);
-        document.getElementById('total-actual').innerText = formatVND(totalActual);
+        // データの描画処理をキック
+        renderDashboard();
 
       } catch (err) {
         loadingEl.classList.add('hidden');
@@ -219,21 +122,122 @@
       }
     }
 
-    // ===== 💬 グルーピング明細モーダルの制御 =====
+    // ===== 🎨 表示月データに応じたダッシュボード描画エンジン =====
+    function renderDashboard() {
+      if (!serverPackageData) return;
+
+      const loadingEl = document.getElementById('loading');
+      const summaryEl = document.getElementById('summary-card');
+      const listEl = document.getElementById('category-list');
+      const monthEl = document.getElementById('app-month');
+      const titleEl = document.getElementById('summary-title');
+      const btnPrev = document.getElementById('btn-prev');
+      const btnNext = document.getElementById('btn-next');
+
+      listEl.innerHTML = '';
+      loadingEl.classList.add('hidden');
+      summaryEl.classList.remove('hidden');
+
+      // 現在選択されているビューのデータブロックを抽出
+      const targetData = serverPackageData[currentView];
+      
+      // ナビゲーションボタンの不透明度調整
+      if (currentView === 'current') {
+        btnNext.classList.add('opacity-40');
+        btnPrev.classList.remove('opacity-40');
+        titleEl.innerText = "今月の残り予算";
+      } else {
+        btnNext.classList.remove('opacity-40');
+        btnPrev.classList.add('opacity-40');
+        titleEl.innerText = "先月の残り予算";
+      }
+
+      // 日付表示の整形
+      let formattedMonth = targetData.ym;
+      if (formattedMonth.includes('GMT') || !isNaN(Date.parse(formattedMonth))) {
+        const dObj = new Date(formattedMonth);
+        if (!isNaN(dObj.getTime())) {
+          formattedMonth = `${dObj.getFullYear()}-${('0' + (dObj.getMonth() + 1)).slice(-2)}`;
+        }
+      }
+      monthEl.innerText = `${formattedMonth} ${currentView === 'current' ? '今月' : '先月'}`;
+
+      let totalBudget = 0;
+      let totalActual = 0;
+
+      // 各費目のバー描画
+      targetData.summary.forEach(item => {
+        totalBudget += item.budget;
+        totalActual += item.actual;
+
+        const ratePercent = Math.min((item.rate * 100), 100).toFixed(1);
+        const rawPercent = (item.rate * 100).toFixed(1);
+
+        let barColor = 'bg-blue-500';
+        let textColor = 'text-blue-600';
+        if (item.rate >= 1.0) {
+          barColor = 'bg-red-500 animate-pulse';
+          textColor = 'text-red-600';
+        } else if (item.rate >= 0.9) {
+          barColor = 'bg-amber-500';
+          textColor = 'text-amber-600';
+        }
+
+        const card = document.createElement('div');
+        card.className = 'bg-white p-4 rounded-xl shadow-xs border border-slate-100 space-y-2 cursor-pointer active:bg-slate-50 transition-colors select-none';
+        card.onclick = () => openModal(item.category);
+        
+        card.innerHTML = `
+          <div class="flex justify-between items-baseline">
+            <span class="font-black text-slate-700 text-sm">${item.category}</span>
+            <span class="text-xs font-bold text-slate-400">${formatVND(item.actual)} / ${formatVND(item.budget)}</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+            <div class="${barColor} h-3 rounded-full" style="width: ${ratePercent}%"></div>
+          </div>
+          <div class="flex justify-between items-center mt-0.5">
+            <span class="text-[10px] font-bold text-slate-300 tracking-tight">📊 タップで詳細内訳を表示</span>
+            <span class="text-right text-xs ${textColor} font-black">${rawPercent}% 消化</span>
+          </div>
+        `;
+        listEl.appendChild(card);
+      });
+
+      // 総合残高カードの計算
+      const remaining = totalBudget - totalActual;
+      const remainEl = document.getElementById('remaining-budget');
+      
+      remainEl.innerText = formatVND(remaining);
+      remainEl.className = remaining < 0 ? 'text-3xl font-black tracking-tight text-red-600' : 'text-3xl font-black tracking-tight text-emerald-600';
+
+      document.getElementById('total-budget').innerText = formatVND(totalBudget);
+      document.getElementById('total-actual').innerText = formatVND(totalActual);
+    }
+
+    // ===== 🔄 ビュー（月）の切り替えスイッチ窓口 =====
+    function switchView(viewName) {
+      if (currentView === viewName) return;
+      currentView = viewName;
+      renderDashboard();
+    }
+
+    // ===== 💬 グルーピング明細モーダルの表示処理 =====
     function openModal(category) {
       const modal = document.getElementById('detail-modal');
       const title = document.getElementById('modal-title');
       const subtitle = document.getElementById('modal-subtitle');
       const body = document.getElementById('modal-body');
 
-      title.innerText = `${category} の今月明細`;
+      title.innerText = `${category} の詳細明細`;
       body.innerHTML = '';
 
-      const targetDetails = cachedDetails.filter(d => d.category === category);
+      // 現在表示中（今月/先月）の詳細明細配列から、該当費目だけを抽出
+      const activeDetails = serverPackageData[currentView].details || [];
+      const targetDetails = activeDetails.filter(d => d.category === category);
       subtitle.innerText = `合計 ${targetDetails.length} 件のお買い物`;
 
       if (targetDetails.length === 0) {
-        body.innerHTML = `<div class="text-center py-12 text-slate-400 font-medium text-sm">今月の支出明細はありません。</div>`;
+        body.innerHTML = `<div class="text-center py-12 text-slate-400 font-medium text-sm">この月の明細はありません。</div>`;
       } else {
         targetDetails.forEach((receipt, index) => {
           const itemBox = document.createElement('div');
@@ -243,7 +247,6 @@
             const splitIdx = it.lastIndexOf(' (');
             const itemName = splitIdx !== -1 ? it.substring(0, splitIdx) : it;
             const itemPrice = splitIdx !== -1 ? it.substring(splitIdx + 2, it.length - 1) : '';
-            
             return `
               <li class="flex justify-between items-start text-xs py-2 border-b border-dashed border-slate-100 last:border-0 text-slate-600">
                 <span class="pr-3 font-medium text-left break-all text-slate-600">${itemName}</span>
@@ -263,11 +266,8 @@
                 <span id="arrow-${index}" class="text-[9px] text-slate-400 font-bold transition-transform duration-200">▼</span>
               </div>
             </div>
-            
             <div id="body-${index}" class="hidden bg-slate-50/60 px-4 py-2 border-t border-slate-100 border-dashed animate-fade-in">
-              <ul class="divide-y divide-dashed divide-slate-100">
-                ${itemsHtml}
-              </ul>
+              <ul class="divide-y divide-dashed divide-slate-100">${itemsHtml}</ul>
             </div>
           `;
           body.appendChild(itemBox);
@@ -279,15 +279,13 @@
     }
 
     function closeModal() {
-      const modal = document.getElementById('detail-modal');
-      modal.classList.add('hidden');
+      document.getElementById('detail-modal').classList.add('hidden');
       document.body.style.overflow = '';
     }
 
     function toggleAccordion(index) {
       const body = document.getElementById(`body-${index}`);
       const arrow = document.getElementById(`arrow-${index}`);
-      
       if (body.classList.contains('hidden')) {
         body.classList.remove('hidden');
         arrow.style.transform = 'rotate(180deg)';
@@ -296,6 +294,33 @@
         arrow.style.transform = 'rotate(0deg)';
       }
     }
+
+    // ===== 📱 スマホ用：左右スワイプジェスチャの検知ロジック =====
+    const swipeArea = document.getElementById('swipe-area');
+
+    swipeArea.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    swipeArea.addEventListener('touchend', (e) => {
+      const touchEndX = e.changedTouches[0].screenX;
+      const touchEndY = e.changedTouches[0].screenY;
+      
+      const diffX = touchEndX - touchStartX;
+      const diffY = touchEndY - touchStartY;
+
+      // 誤作動防止：縦スクロール（Y軸）の動きが大きくなく、横（X軸）に70px以上動いた時だけスワイプと判定
+      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 70) {
+        if (diffX > 0) {
+          // 👉 右へスワイプ＝過去（先月）へ戻る
+          switchView('last');
+        } else {
+          // 👈 左へスワイプ＝未来（今月）へ進む
+          switchView('current');
+        }
+      }
+    }, { passive: true });
 
     // 初回起動時実行
     fetchData();
