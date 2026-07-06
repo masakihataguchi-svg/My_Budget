@@ -89,7 +89,7 @@
   </style>
 
   <script>
-    // ⚙️ 稼働確認が取れている正しい本番用GAS URL
+    // ⚙️ 稼働確認済みの本番用GAS URL
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx3Ecc0JvebfwelZuabqgUBzuz679L51TL_IVQ4yes8JmnjOqo953T_DTjynUWkHfUS/exec";
 
     // 明細データをフロント側に保持するキャッシュ配列
@@ -113,8 +113,10 @@
       listEl.innerHTML = '';
 
       try {
-        // 🛠️ 【修正箇所】Googleの302リダイレクト転送を強制的に追従させる設定を明示
-        const response = await fetch(GAS_API_URL, {
+        // 🛠️ 【防御機構】URL文字列からゼロ幅スペース等の不可視文字・改行を正規表現で徹底排除してクレンジング
+        const sanitizedUrl = GAS_API_URL.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+
+        const response = await fetch(sanitizedUrl, {
           method: "GET",
           redirect: "follow"
         });
@@ -216,7 +218,7 @@
       }
     }
 
-    // ===== 💬 グルーピング明細モーダルの制御窓口 =====
+    // ===== 💬 グルーピング明細モーダルの制御 =====
     function openModal(category) {
       const modal = document.getElementById('detail-modal');
       const title = document.getElementById('modal-title');
