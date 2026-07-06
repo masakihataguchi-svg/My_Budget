@@ -170,7 +170,7 @@
   </style>
 
   <script>
-    // ⚙️ 【一字一句完全復元】大文字の O と I を完全に含んだ正しい本番用GAS URL
+    // ⚙️ 【完全固定】大文字の O と I を完全に含んだ正しい本番用GAS URL
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx3EccOJvebfweIZuabqgUBzuz679L51TL_IVQ4yes8JmnjOqo953T_DTjynUWkHfUS/exec";
 
     let serverPackageData = null;
@@ -263,6 +263,7 @@
         if (item.rate >= 1.0) {
           barColor = 'bg-red-500 animate-pulse';
           textColor = 'text-red-600';
+        } else if (item.rate >= 0.9) {
           barColor = 'bg-amber-500';
           textColor = 'text-amber-600';
         }
@@ -473,7 +474,7 @@
 
       } catch (err) {
         alert("登録エラー: " + err.message);
-      } finaly {
+      } finally { // 💡 【重要】finaly ➔ finally へ100%スペルミス修正完了！
         btn.disabled = false;
         btn.innerHTML = `<span>🚀 シートに直接登録</span>`;
       }
