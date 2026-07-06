@@ -4,8 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>家計簿ダッシュボード</title>
+  <!-- Tailwind CSS -->
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   
+  <!-- ===== 📱 PWA / アイコン画像の反映設定 ===== -->
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="./icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,10 +15,12 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen font-sans select-none overflow-x-hidden">
 
+  <!-- ヘッダー -->
   <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white sticky top-0 z-40 shadow-md px-4 pt-4 pb-4 rounded-b-2xl">
     <div class="flex justify-between items-center max-w-md mx-auto">
       <div>
         <h1 class="text-xl font-black tracking-tight">家計簿</h1>
+        <!-- 月移動のナビゲーションUI -->
         <div class="flex items-center space-x-2 mt-0.5">
           <button onclick="switchView('last')" id="btn-prev" class="text-blue-200 hover:text-white text-xs font-bold transition-colors">◀ 先月</button>
           <span id="app-month" class="text-xs text-white font-black bg-white/20 px-2.5 py-0.5 rounded-full">読み込み中...</span>
@@ -29,14 +33,18 @@
     </div>
   </header>
 
+  <!-- メインコンテンツ -->
   <main id="swipe-area" class="max-w-md mx-auto p-4 space-y-4 min-h-[calc(100vh-80px)] pb-24">
 
+    <!-- ローディング表示 -->
     <div id="loading" class="text-center py-12 text-slate-400 font-medium animate-pulse">
       データを取得しています...
     </div>
 
+    <!-- エラー表示 -->
     <div id="error-msg" class="hidden bg-red-50 border border-red-200 text-red-600 p-4 rounded-xl text-sm font-semibold shadow-sm text-center"></div>
 
+    <!-- 概要カード (残り予算) -->
     <div id="summary-card" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-100 text-center">
       <h2 id="summary-title" class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">今月の残り予算</h2>
       <div id="remaining-budget" class="text-3xl font-black tracking-tight text-slate-900 transition-colors">0 VND</div>
@@ -52,10 +60,12 @@
       </div>
     </div>
 
+    <!-- 費目別リストのコンテナ -->
     <div id="category-list" class="space-y-3"></div>
 
   </main>
 
+  <!-- ===== 📸 レシートスキャン・フローティングボタン ===== -->
   <div class="fixed bottom-6 right-6 z-40">
     <button onclick="triggerCamera()" class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-4 rounded-full shadow-xl active:scale-95 hover:shadow-2xl transition-all font-black text-sm tracking-wide flex items-center space-x-2">
       <span class="text-lg">📸</span>
@@ -64,6 +74,7 @@
     <input type="file" id="camera-input" accept="image/*" multiple class="hidden" onchange="handleImagesSelected(event)">
   </div>
 
+  <!-- ===== 📋 明細ポップアップモーダル ===== -->
   <div id="detail-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
     <div onclick="closeModal()" class="fixed inset-0 bg-black/60 backdrop-blur-xs"></div>
     <div class="relative bg-white w-full sm:max-w-md h-[80vh] sm:h-[70vh] sm:rounded-2xl rounded-t-2xl shadow-xl flex flex-col overflow-hidden animate-slide-up sm:animate-fade-in">
@@ -78,6 +89,7 @@
     </div>
   </div>
 
+  <!-- ===== ⏳ 撮影画像確認＆解析中ローディングモーダル ===== -->
   <div id="scan-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
     <div class="fixed inset-0 bg-black/60 backdrop-blur-xs"></div>
     <div class="relative bg-white w-full sm:max-w-md max-h-[85vh] sm:rounded-2xl rounded-t-2xl shadow-xl flex flex-col overflow-hidden animate-slide-up">
@@ -102,6 +114,7 @@
     </div>
   </div>
 
+  <!-- ===== 📝 解析結果の手動微調整・最終確認フォームモーダル ===== -->
   <div id="edit-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
     <div class="fixed inset-0 bg-black/60 backdrop-blur-xs"></div>
     <div class="relative bg-white w-full sm:max-w-md h-[90vh] sm:h-[85vh] sm:rounded-2xl rounded-t-2xl shadow-xl flex flex-col overflow-hidden animate-slide-up">
@@ -169,8 +182,8 @@
     .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
   </style>
 
+  <!-- JavaScript -->
   <script>
-    // ⚙️ 【完全固定】大文字の O と I を完全に含んだ正しい本番用GAS URL
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx3EccOJvebfweIZuabqgUBzuz679L51TL_IVQ4yes8JmnjOqo953T_DTjynUWkHfUS/exec";
 
     let serverPackageData = null;
@@ -304,7 +317,6 @@
       renderDashboard();
     }
 
-    // ===== 📸 カメラ起動と複数画像管理ロジック =====
     function triggerCamera() {
       document.getElementById('camera-input').click();
     }
@@ -355,7 +367,6 @@
       selectedImageBase64Array = [];
     }
 
-    // ===== ⚡ Gemini API (GAS doPost) への解析要求処理 =====
     async function startOcrAnalysis() {
       if (selectedImageBase64Array.length === 0) return;
 
@@ -389,7 +400,6 @@
       }
     }
 
-    // ===== 📝 確認・手動修正フォームフォームの制御窓口 =====
     function openEditModal(data) {
       document.getElementById('edit-modal').classList.remove('hidden');
       
@@ -427,7 +437,6 @@
       closeScanModal();
     }
 
-    // ===== 🚀 修正後の最終データをスプレッドシートの末尾に書き込み =====
     async function submitFinalDataToSheet() {
       const btn = document.getElementById('btn-submit-sheet');
       
@@ -464,8 +473,10 @@
           })
         });
 
-        if (!response.ok) throw new Error("シートへの登録に失敗しました。");
+        if (!response.ok) throw new Error("ネットワーク通信に失敗しました。");
         const res = await response.json();
+        
+        // 🛠️ GAS側の実行時エラー（シートオープン失敗等）を綺麗に検知してポップアップ
         if (res.error) throw new Error(res.error);
 
         alert("スプレッドシートへ正常に自動登録されました！");
@@ -474,13 +485,13 @@
 
       } catch (err) {
         alert("登録エラー: " + err.message);
-      } finally { // 💡 【重要】finaly ➔ finally へ100%スペルミス修正完了！
+      } finally { 
+        // ⭕ 【100%完全修正】finally のスペルを完全に修正し、ボタンの状態を復元
         btn.disabled = false;
         btn.innerHTML = `<span>🚀 シートに直接登録</span>`;
       }
     }
 
-    // ===== 💬 グルーピング詳細ポップアップの制御 =====
     function openModal(category) {
       const modal = document.getElementById('detail-modal');
       const title = document.getElementById('modal-title');
@@ -576,7 +587,6 @@
       }
     }, { passive: true });
 
-    // 初回起動時実行
     fetchData();
   </script>
 </body>
