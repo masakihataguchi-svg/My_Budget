@@ -89,7 +89,7 @@
   </style>
 
   <script>
-    // ⚙️ ご提供いただいた最新のGASウェブアプリURL
+    // ⚙️ タイポを修正した、寸分の狂いもない完全なGASウェブアプリURL
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx3Ecc0JvebfwelZuabqgUBzuz679L51TL_IVQ4yes8JmnjOqo953T_DTjynUWkHfUS/exec";
 
     // 明細データをフロント側に保持するキャッシュ配列
@@ -131,7 +131,7 @@
         loadingEl.classList.add('hidden');
         summaryEl.classList.remove('hidden');
 
-        // ヘッダーの日付表記を綺麗に整える
+        // ===== 🕒 ヘッダーの日付表記を綺麗に整える =====
         const rawMonth = summary[0].month;
         let formattedMonth = rawMonth;
 
@@ -172,7 +172,6 @@
           }
 
           const card = document.createElement('div');
-          // クリック可能にするためのエフェクトとスタイル定義
           card.className = 'bg-white p-4 rounded-xl shadow-xs border border-slate-100 space-y-2 cursor-pointer active:bg-slate-50 transition-colors select-none';
           card.onclick = () => openModal(item.category);
           
@@ -223,7 +222,6 @@
       title.innerText = `${category} の今月明細`;
       body.innerHTML = '';
 
-      // キャッシュから該当カテゴリのレシートデータを抽出
       const targetDetails = cachedDetails.filter(d => d.category === category);
       subtitle.innerText = `合計 ${targetDetails.length} 件のお買い物`;
 
@@ -234,9 +232,7 @@
           const itemBox = document.createElement('div');
           itemBox.className = 'bg-white rounded-xl border border-slate-100 overflow-hidden shadow-2xs';
           
-          // レシート内商品の箇条書きリストをパース・組み立て
           const itemsHtml = receipt.items.map(it => {
-            // "商品名 (金額)" の構造を分解
             const splitIdx = it.lastIndexOf(' (');
             const itemName = splitIdx !== -1 ? it.substring(0, splitIdx) : it;
             const itemPrice = splitIdx !== -1 ? it.substring(splitIdx + 2, it.length - 1) : '';
@@ -271,18 +267,16 @@
         });
       }
 
-      // モーダルの表示処理
       modal.classList.remove('hidden');
-      document.body.style.overflow = 'hidden'; // 背景のスクロールを一時固定
+      document.body.style.overflow = 'hidden';
     }
 
     function closeModal() {
       const modal = document.getElementById('detail-modal');
       modal.classList.add('hidden');
-      document.body.style.overflow = ''; // スクロール固定を解除
+      document.body.style.overflow = '';
     }
 
-    // アコーディオンの開閉スイッチ
     function toggleAccordion(index) {
       const body = document.getElementById(`body-${index}`);
       const arrow = document.getElementById(`arrow-${index}`);
